@@ -3,6 +3,9 @@
 
 import curses, argparse, random, time
 
+PAUSE = "p"
+DIRECTIONS = "Move(arrow keys)\nPause({})".format(PAUSE)
+
 class PanelStack:
   """Class abstracting the stack of panels used in the game."""
   
@@ -131,6 +134,10 @@ class PanelStack:
     monotonic time and the last update needs to be recorded."""
     
     self.pause_diff = time.monotonic() - self.last_up
+
+    # Clears the screen so the player can't pause to figure out their next move.
+    self.stack_win.clear()
+    self.stack_win.refresh()
     
   def unpause(self):
     """Unpause the stack advance by setting the last time an advance occured
@@ -139,7 +146,7 @@ class PanelStack:
     passed while the game was paused."""
     
     self.last_up = time.monotonic() - self.pause_diff
-          
+    self.print_stack()
 
 class CursedPanels:
   """Class abstracting the logic required to run a game."""
@@ -181,7 +188,7 @@ class CursedPanels:
     """Update the score window with the current score."""
     
     self.score_win.clear()
-    self.score_win.addstr(f"Score\n{self.score}")
+    self.score_win.addstr("Score\n{}".format(self.score))
     self.score_win.refresh()
     self.last_score = self.score
     
@@ -189,17 +196,19 @@ class CursedPanels:
     """Update the speed window with the current stack speed."""
     
     self.speed_win.clear()
-    self.speed_win.addstr(f"Speed\n{self.stack.spd}")
+    self.speed_win.addstr("Speed\n{}".format(self.stack.spd))
     self.speed_win.refresh()
     self.last_spd = self.stack.spd
     
   def set_status(self, status=None):
-    """Update the status window to display the given string. Pass None to clear
-    the status window."""
+    """Update the status window to display the given string. Pass None to display
+    the game instructions."""
     
     self.status_win.clear()
     if status:
       self.status_win.addstr(status)
+    else:
+      self.status_win.addstr(DIRECTIONS)
     self.status_win.refresh()
   
   def game(self, stdscr):
@@ -225,15 +234,35 @@ class CursedPanels:
       self.update_speed()
     
     inp = stdscr.getch()
-    if inp == ord('w'):
-      time.sleep(10)
+    if inp == ord(PAUSE):
+      self.mode = self.pause
     elif inp == ord('s'):
       self.score += 1
     elif inp == ord('r'):
       self.stack.spd += 1
   
+  def pause(self, stdscr):
+    """Pause the game."""
+
+    stdscr.nodelay(False) # Make getch block
+
+    self.stack.pause()
+
+    self.set_status("Paused\nUnpause = {}".format(PAUSE))
+
+    while True:
+      inp = stdscr.getch()
+      if inp == ord(PAUSE):
+        break
+
+    stdscr.nodelay(True)
+    self.mode = self.game
+    self.set_status()
+    self.stack.unpause()
+
+
   def game_over(self, stdscr):
-    """Game over mode"""
+    """Game over mode."""
     stdscr.nodelay(False) # Make sure getch blocking.
     
     self.set_status("Game Over\nAgain (y/n)?")
@@ -275,6 +304,7 @@ class CursedPanels:
     stdscr.refresh()
     self.update_score()
     self.update_speed()
+    self.set_status()
     self.stack.print_stack()
     
     try:
