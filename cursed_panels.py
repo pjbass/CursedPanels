@@ -365,10 +365,6 @@ class CursedCursor:
   def render(self, win):
     """Render the cursor in the given window. Resets the refresh flag to False."""
 
-    if self.select:
-      curses.curs_set(2)
-    else:
-      curses.curs_set(1)
     win.move(self.py + self.offset_y, self.px + self.offset_x)
     self.refresh = False
 
@@ -441,12 +437,17 @@ class CursedPanels:
   def game(self, stdscr):
     """Play the game during the event loop."""
     
+    # Check if there are any updates to the screen
+    # aside from the cursor.
     up_stack = self.stack.advance_ready()
     up_score = self.score != self.last_score
     up_spd = self.stack.spd != self.last_spd
     elims = 0
 
     moved = False
+
+    # Cache the current location of the cursor, because it may move during
+    # key handling and would be needed if select mode is on.
     old_cursor = (self.cursor.px, self.cursor.py)
     inp = stdscr.getch()
     if inp == ord(PAUSE):
@@ -466,6 +467,8 @@ class CursedPanels:
     elif inp == curses.KEY_DOWN:
       moved = self.cursor.move(0, 1)
 
+    # If the cursor is in select mode and it has moved, then panels are
+    # being swapped. Swap panels and reprint the stack.
     if self.cursor.select and moved:
       (elims, score) =self.stack.swap_panel(
         old_cursor[0],
@@ -480,7 +483,10 @@ class CursedPanels:
     if any((up_stack, up_score, up_spd, self.cursor.refresh)):
       stdscr.refresh()
     
+    # Because the cursor is constantly moving due to curses, always
+    # render the cursor.
     self.cursor.render(stdscr)
+
     if up_stack:
       (elims, score, game_over) = self.stack.update_stack()
       
@@ -500,6 +506,10 @@ class CursedPanels:
     
     self.panels += elims
 
+    # Increase speed if the number of panels eliminated is higher than the
+    # result of the equation. The way this is calculated, if the game is
+    # started at a higher base speed, then it will take longer for the speed
+    # to increase the first time, but will increase at the same rate afterwards.
     if self.panels > (self.stack.spd * BASE_PANEL_THRESH)**SPEED_UP_EXP:
       self.stack.spd += 1
   
@@ -519,7 +529,10 @@ class CursedPanels:
 
     stdscr.nodelay(True)
     self.mode = self.game
-    self.set_status()
+    if self.cursor.select:
+      self.set_status(SELECT_ON)
+    else:
+      self.set_status()
     self.stack.unpause()
 
 
