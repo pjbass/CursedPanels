@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# An attempt to make a small game like Tetris Attack using curses and Python
+# A small, text-based matching game.
 
 import curses, argparse, random, time, math
 
@@ -593,7 +593,7 @@ class CursedPanels:
 def parse_opts():
   """Parses the options provided on the command line. Returns the parsed options."""
   
-  parser = argparse.ArgumentParser(description='A cursed Panel de Pon clone')
+  parser = argparse.ArgumentParser(description='A cursed panel matching game.')
   
   parser.add_argument('-r','--rate', metavar="RT", type=int, default=DEFAULT_SPEED,
                       help="Initial speed for the stack to advance at. Defaults to {}.".format(DEFAULT_SPEED))
